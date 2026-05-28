@@ -1,65 +1,68 @@
 @startuml
-!pragma layout smetana
+!pragma layout elk
+skinparam linetype ortho
 title S3-Platform — ArchiMate 3 Layered View (As-Is)
 
 ' ==== BUSINESS LAYER ====
-package "Business Layer" <<Rectangle>> {
+rectangle "Business Layer" {
 
-  ' --- Actors ---
-  archimate #Business "Куратор дайджеста"  as curator <<business-actor>>
-  archimate #Business "Эксперт"            as expert  <<business-actor>>
-  archimate #Business "Администратор"      as admin   <<business-actor>>
-  archimate #Business "Читатель дайджеста" as reader  <<business-actor>>
-  archimate #Business "Plugin Author"      as author  <<business-actor>>
+  rectangle "Actors, Roles & Services" as biz_arl {
+    archimate #Business "Куратор дайджеста"  as curator <<business-actor>>
+    archimate #Business "Эксперт"            as expert  <<business-actor>>
+    archimate #Business "Администратор"      as admin   <<business-actor>>
+    archimate #Business "Читатель дайджеста" as reader  <<business-actor>>
+    archimate #Business "Plugin Author"      as author  <<business-actor>>
 
-  ' --- Roles ---
-  archimate #Business "Потребитель" as role_consumer <<business-role>>
-  archimate #Business "Эксперт"     as role_expert   <<business-role>>
+    archimate #Business "Потребитель" as role_consumer <<business-role>>
+    archimate #Business "Эксперт"     as role_expert   <<business-role>>
 
-  ' --- Service ---
-  archimate #Business "Доставка дайджеста" as svc_delivery <<business-service>>
+    archimate #Business "Доставка дайджеста" as svc_delivery <<business-service>>
+  }
 
-  ' --- Functions ---
-  archimate #Business "Создание выпуска дайджеста" as fn_issue      <<business-function>>
-  archimate #Business "Аналитика"                  as fn_analytics  <<business-function>>
-  archimate #Business "Сбор материалов"            as fn_collection <<business-function>>
+  rectangle "Создание выпуска дайджеста" as grp_issue {
+    archimate #Business "Создание выпуска дайджеста" as fn_issue   <<business-function>>
+    archimate #Business "Отбор материалов"           as p_select   <<business-process>>
+    archimate #Business "Запрос комментариев"        as p_comments <<business-process>>
+    archimate #Business "Формирование дайджеста"     as p_form     <<business-process>>
+    archimate #Business "Утверждение"                as p_approve  <<business-process>>
+    archimate #Business "Публикация"                 as p_publish  <<business-process>>
+  }
 
-  ' --- Processes: Создание выпуска дайджеста ---
-  archimate #Business "Отбор материалов"       as p_select   <<business-process>>
-  archimate #Business "Запрос комментариев"    as p_comments <<business-process>>
-  archimate #Business "Формирование дайджеста" as p_form     <<business-process>>
-  archimate #Business "Утверждение"            as p_approve  <<business-process>>
-  archimate #Business "Публикация"             as p_publish  <<business-process>>
+  rectangle "Аналитика" as grp_analytics {
+    archimate #Business "Аналитика"                               as fn_analytics     <<business-function>>
+    archimate #Business "Оценка материалов"                       as p_score          <<business-process>>
+    archimate #Business "Обработка запроса\nкомментария эксперта" as p_expert_req     <<business-process>>
+    archimate #Business "Сбор оценок и\nкомментариев экспертов"   as p_collect_scores <<business-process>>
+    archimate #Business "Формирование лент"                       as p_feed           <<business-process>>
+  }
 
-  ' --- Processes: Аналитика ---
-  archimate #Business "Оценка материалов"                       as p_score          <<business-process>>
-  archimate #Business "Обработка запроса\nкомментария эксперта" as p_expert_req     <<business-process>>
-  archimate #Business "Сбор оценок и\nкомментариев экспертов"   as p_collect_scores <<business-process>>
-  archimate #Business "Формирование лент"                       as p_feed           <<business-process>>
+  rectangle "Сбор материалов" as grp_collection {
+    archimate #Business "Сбор материалов"            as fn_collection <<business-function>>
+    archimate #Business "Синтез материалов/новостей" as p_synth       <<business-process>>
+    archimate #Business "Управление источниками"    as p_sources     <<business-process>>
+  }
 
-  ' --- Processes: Сбор материалов ---
-  archimate #Business "Синтез материалов/новостей" as p_synth   <<business-process>>
-  archimate #Business "Управление источниками"     as p_sources <<business-process>>
+  rectangle "Events" as grp_events {
+    archimate #Business "Еженедельный отбор\nматериалов"  as e_weekly <<business-event>>
+    archimate #Business "Окно сборки раз\nв 2 месяца"     as e_biwk   <<business-event>>
+    archimate #Business "Запрос комментария\nэксперта"    as e_req    <<business-event>>
+    archimate #Business "Вт, Пт старт\nоценки материалов" as e_eval   <<business-event>>
+    archimate #Business "Время синтеза\nматериалов"       as e_synth  <<business-event>>
+  }
 
-  ' --- Events ---
-  archimate #Business "Еженедельный отбор\nматериалов"  as e_weekly <<business-event>>
-  archimate #Business "Окно сборки раз\nв 2 месяца"     as e_biwk   <<business-event>>
-  archimate #Business "Запрос комментария\nэксперта"    as e_req    <<business-event>>
-  archimate #Business "Вт, Пт старт\nоценки материалов" as e_eval   <<business-event>>
-  archimate #Business "Время синтеза\nматериалов"       as e_synth  <<business-event>>
-
-  ' --- Objects ---
-  archimate #Business "Дайджест"                   as bo_digest   <<business-object>>
-  archimate #Business "Выпуск дайджеста"           as bo_issue    <<business-object>>
-  archimate #Business "Элемент дайджеста"          as bo_item     <<business-object>>
-  archimate #Business "Оцененный материал/новость" as bo_rated    <<business-object>>
-  archimate #Business "Комментарий эксперта"       as bo_comment  <<business-object>>
-  archimate #Business "Материал/новость"           as bo_material <<business-object>>
-  archimate #Business "Источник"                   as bo_source   <<business-object>>
+  rectangle "Business Objects" as grp_objects {
+    archimate #Business "Дайджест"                   as bo_digest   <<business-object>>
+    archimate #Business "Выпуск дайджеста"           as bo_issue    <<business-object>>
+    archimate #Business "Элемент дайджеста"          as bo_item     <<business-object>>
+    archimate #Business "Оцененный материал/новость" as bo_rated    <<business-object>>
+    archimate #Business "Комментарий эксперта"       as bo_comment  <<business-object>>
+    archimate #Business "Материал/новость"           as bo_material <<business-object>>
+    archimate #Business "Источник"                   as bo_source   <<business-object>>
+  }
 }
 
 ' ==== APPLICATION LAYER ====
-package "Application Layer" <<Rectangle>> {
+rectangle "Application Layer" {
   archimate #Application "s3p-sdk\n(Python lib)"                  as sdk         <<application-component>>
   archimate #Application "s3p-node\n(worker)"                     as node        <<application-component>>
   archimate #Application "s3p-n8n\n(workflow host)"               as n8n         <<application-component>>
@@ -80,7 +83,7 @@ package "Application Layer" <<Rectangle>> {
 }
 
 ' ==== TECHNOLOGY LAYER ====
-package "Technology Layer" <<Rectangle>> {
+rectangle "Technology Layer" {
   archimate #Technology "Kubernetes\ndemo-s3p-dev"          as k8s       <<technology-node>>
   archimate #Technology "Compose host\n(n8n stack)"         as host_n8n  <<technology-node>>
   archimate #Technology "VM\n(tape-service)"                as host_tape <<technology-node>>
