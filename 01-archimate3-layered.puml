@@ -1,5 +1,5 @@
 @startuml
-!pragma layout elk
+!pragma layout smetana
 skinparam linetype ortho
 title S3-Platform — ArchiMate 3 Layered View (As-Is)
 
@@ -13,8 +13,8 @@ rectangle "Business Layer" {
     archimate #Business "Читатель дайджеста" as reader  <<business-actor>>
     archimate #Business "Plugin Author"      as author  <<business-actor>>
 
-    archimate #Business "Потребитель" as role_consumer <<business-role>>
-    archimate #Business "Эксперт"     as role_expert   <<business-role>>
+    archimate #Business "Потребитель"     as role_consumer <<business-role>>
+    archimate #Business "Эксперт-оценщик" as role_expert   <<business-role>>
 
     archimate #Business "Доставка дайджеста" as svc_delivery <<business-service>>
   }
@@ -71,8 +71,7 @@ rectangle "Application Layer" {
   archimate #Application "s3p-web-annotation\n(SPA)"              as web         <<application-component>>
   archimate #Application "s3p-database\n(SQL + DB functions)"     as db_app      <<application-component>>
   archimate #Application "cloud-core\n(Helm + ArgoCD)"            as cloud       <<application-component>>
-  archimate #Application "plugin-template\n(GitHub scaffold)"     as plugin_tpl  <<application-component>>
-  archimate #Application "plugin-package\n(cookiecutter)"         as plugin_pkg  <<application-component>>
+  archimate #Application "plugin-template\n(repo scaffold)"       as plugin_tpl  <<application-component>>
   archimate #Application "GitHub Actions\n(CI)"                   as gha         <<application-component>>
 
   archimate #Application "S3PTask"                                as do_task     <<application-data-object>>
@@ -106,7 +105,6 @@ role_consumer --> svc_delivery
 role_expert   --> p_collect_scores
 role_expert   --> p_expert_req
 author        --> plugin_tpl        : scaffolds from
-author        --> plugin_pkg        : packages with
 
 ' ==== BUSINESS: function aggregates process ====
 fn_issue      o-- p_select
@@ -187,7 +185,6 @@ tape       --> do_doc     : reads
 tape       --> do_digest  : writes
 db_app     --> do_digest  : stores
 gha        --> do_plugin  : produces
-plugin_pkg --> gha        : scaffolds CI
 
 ' ==== APP DEPLOYED ON TECH ====
 node       --> k8s        : assigned to
