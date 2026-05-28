@@ -32,11 +32,10 @@ jobs:
       - name: Test (PlantUML syntax check)
         run: bash scripts/test.sh
 
-      - name: Render to out/ (PNG + SVG)
+      - name: Render to out/ (PNG)
         run: |
           mkdir -p out
           plantuml -tpng -o "$GITHUB_WORKSPACE/out" *.puml
-          plantuml -tsvg -o "$GITHUB_WORKSPACE/out" *.puml
           ls -la out/
 
       - name: Upload artifact

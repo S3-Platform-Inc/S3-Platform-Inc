@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A static documentation repo: nine PlantUML diagram sources at the repo root that together describe the **S3-Platform** (seven separate Python/TypeScript/Helm repos under the `s3-platform-inc` org). There is no application code here — the only "build" is rendering `.puml` → PNG + SVG into `out/`.
+A static documentation repo: nine PlantUML diagram sources at the repo root that together describe the **S3-Platform** (seven separate Python/TypeScript/Helm repos under the `s3-platform-inc` org). There is no application code here — the only "build" is rendering `.puml` → PNG into `out/`.
 
 Read `README.md` for the per-diagram index and the platform scope.
 
@@ -16,13 +16,15 @@ bash scripts/test.sh
 
 # Render everything to out/ (matches CI)
 plantuml -tpng -o "$(pwd)/out" *.puml
-plantuml -tsvg -o "$(pwd)/out" *.puml
 
 # Render one file while iterating
-plantuml -tsvg 04a-sequence-n8n-trigger.puml
+plantuml -tpng 04a-sequence-n8n-trigger.puml
 
 # Quick check on one file without producing output
 plantuml -checkonly 05-component.puml
+
+# Regenerate the README "View" online-editor URLs after .puml edits
+python3 scripts/gen-viewer-urls.py
 ```
 
 Local prereqs: `plantuml` and `graphviz` (`apt-get install plantuml graphviz` / `brew install plantuml graphviz`). The Smetana pragma (see below) lets diagrams render even when `graphviz` isn't installed.
@@ -46,12 +48,15 @@ Activity and sequence diagrams use PlantUML's built-in layout and don't need it.
 
 ## CI
 
-`.github/workflows/render.yml` triggers on push to `main` (paths-ignore `out/**`, `README.md`, `.gitignore`), PRs touching `*.puml`/`scripts/test.sh`/`render.yml`, and manual dispatch. Steps: install plantuml+graphviz → `scripts/test.sh` → render PNG + SVG to `out/` → upload artifact → on push to main, commit refreshed `out/` back via `stefanzweifel/git-auto-commit-action` with message `ci: re-render diagrams [skip ci]`.
+`.github/workflows/render.yml` triggers on push to `main` (paths-ignore `out/**`, `README.md`, `.gitignore`), PRs touching `*.puml`/`scripts/test.sh`/`render.yml`, and manual dispatch. Steps: install plantuml+graphviz → `scripts/test.sh` → render PNG to `out/` → upload artifact → on push to main, commit refreshed `out/` back via `stefanzweifel/git-auto-commit-action` with message `ci: re-render diagrams [skip ci]`.
+
+SVG output was removed deliberately: the README's per-row "View" links open the PlantUML online editor with the source pre-loaded (deflate + custom base64 encoded into the URL), which covers the "see it without cloning" use case better than committed `.svg` files did.
 
 **Don't hand-commit `out/`.** CI owns it. Local renders into `out/` are fine for previewing — just don't push them in the same commit as a `.puml` change; CI will re-render anyway and you'd be reverting yourself on the next CI run. (`.gitignore` doesn't ignore `out/` so the first-commit baseline is browsable; CI updates supersede it.)
 
 ## Scope of edits
 
-- New diagrams: add the `.puml`, run `scripts/test.sh`, add a row in `README.md`'s diagram table.
+- New diagrams: add the `.puml`, run `scripts/test.sh`, add a row in `README.md`'s diagram table (including the "View" link — get it from `python3 scripts/gen-viewer-urls.py`).
 - Renaming a diagram changes the URLs of its rendered artifacts in `out/` — update the README and any external links.
+- Editing a `.puml` body invalidates its "View" URL in the README — rerun `python3 scripts/gen-viewer-urls.py` and replace the row's link.
 - The six allowed diagram types are fixed (per the design brief); don't add `class`, `state`, `object`, `er`, etc. without confirming first.
