@@ -98,13 +98,13 @@ rectangle "Technology Layer" {
 }
 
 ' ==== BUSINESS: actors → roles / functions / processes ====
-curator       --> fn_issue          : выполняет
-expert        --> role_expert       : играет
-reader        --> role_consumer     : играет
-admin         --> p_sources         : управляет
-role_consumer --> svc_delivery      : потребляет
-role_expert   --> p_collect_scores  : участвует
-role_expert   --> p_expert_req      : отвечает
+curator       --> fn_issue
+expert        --> role_expert
+reader        --> role_consumer
+admin         --> p_sources
+role_consumer --> svc_delivery
+role_expert   --> p_collect_scores
+role_expert   --> p_expert_req
 author        --> plugin_tpl        : scaffolds from
 author        --> plugin_pkg        : packages with
 
@@ -136,7 +136,7 @@ e_biwk   --> p_form
 e_req    --> p_expert_req
 e_eval   --> p_score
 e_synth  --> p_synth
-p_comments --> e_req : raises
+p_comments --> e_req : вызывает
 
 ' ==== BUSINESS: object composition (Дайджест → … → Материал/новость) ====
 bo_digest *-- bo_issue
@@ -173,7 +173,7 @@ do_plugin ..|> bo_source
 ' ==== APP <-> APP ====
 sdk        <-- node       : uses
 sdk        <-- tape       : uses
-simple_api <-- n8n        : uses
+simple_api <-- n8n        : HTTP
 db_app     <-- simple_api : SQL
 db_app     <-- node       : SQL
 db_app     <-- tape       : SQL
@@ -187,7 +187,7 @@ tape       --> do_doc     : reads
 tape       --> do_digest  : writes
 db_app     --> do_digest  : stores
 gha        --> do_plugin  : produces
-plugin_pkg --> gha        : built by
+plugin_pkg --> gha        : scaffolds CI
 
 ' ==== APP DEPLOYED ON TECH ====
 node       --> k8s        : assigned to
@@ -195,11 +195,11 @@ n8n        --> host_n8n   : assigned to
 simple_api --> host_n8n   : assigned to
 tape       --> host_tape  : assigned to
 web        --> static     : assigned to
-db_app     --> pg         : realized by
+pg         ..|> db_app
 pg         --> host_db    : assigned to
 tape       --> redis      : uses
-node       --> s3         : uses
-gha        --> s3         : uses
+node       --> s3         : downloads from
+gha        --> s3         : publishes to
 k8s        --> ghcr       : pulls
 author     --> gh         : pushes to
 gha        --> gh         : runs on
