@@ -4,13 +4,58 @@ title S3-Platform — ArchiMate 3 Layered View (As-Is)
 
 ' ==== BUSINESS LAYER ====
 package "Business Layer" <<Rectangle>> {
-  archimate #Business "Plugin Author"        as author    <<business-actor>>
-  archimate #Business "Annotation Expert"    as expert    <<business-actor>>
-  archimate #Business "Platform Operator"    as operator  <<business-actor>>
 
-  archimate #Business "Source Ingestion"     as svc_ingest <<business-service>>
-  archimate #Business "Document Annotation"  as svc_annot  <<business-service>>
-  archimate #Business "Plugin Distribution"  as svc_plugin <<business-service>>
+  ' --- Actors ---
+  archimate #Business "Куратор дайджеста"  as curator <<business-actor>>
+  archimate #Business "Эксперт"            as expert  <<business-actor>>
+  archimate #Business "Администратор"      as admin   <<business-actor>>
+  archimate #Business "Читатель дайджеста" as reader  <<business-actor>>
+  archimate #Business "Plugin Author"      as author  <<business-actor>>
+
+  ' --- Roles ---
+  archimate #Business "Потребитель" as role_consumer <<business-role>>
+  archimate #Business "Эксперт"     as role_expert   <<business-role>>
+
+  ' --- Service ---
+  archimate #Business "Доставка дайджеста" as svc_delivery <<business-service>>
+
+  ' --- Functions ---
+  archimate #Business "Создание выпуска дайджеста" as fn_issue      <<business-function>>
+  archimate #Business "Аналитика"                  as fn_analytics  <<business-function>>
+  archimate #Business "Сбор материалов"            as fn_collection <<business-function>>
+
+  ' --- Processes: Создание выпуска дайджеста ---
+  archimate #Business "Отбор материалов"       as p_select   <<business-process>>
+  archimate #Business "Запрос комментариев"    as p_comments <<business-process>>
+  archimate #Business "Формирование дайджеста" as p_form     <<business-process>>
+  archimate #Business "Утверждение"            as p_approve  <<business-process>>
+  archimate #Business "Публикация"             as p_publish  <<business-process>>
+
+  ' --- Processes: Аналитика ---
+  archimate #Business "Оценка материалов"                       as p_score          <<business-process>>
+  archimate #Business "Обработка запроса\nкомментария эксперта" as p_expert_req     <<business-process>>
+  archimate #Business "Сбор оценок и\nкомментариев экспертов"   as p_collect_scores <<business-process>>
+  archimate #Business "Формирование лент"                       as p_feed           <<business-process>>
+
+  ' --- Processes: Сбор материалов ---
+  archimate #Business "Синтез материалов/новостей" as p_synth   <<business-process>>
+  archimate #Business "Управление источниками"     as p_sources <<business-process>>
+
+  ' --- Events ---
+  archimate #Business "Еженедельный отбор\nматериалов"  as e_weekly <<business-event>>
+  archimate #Business "Окно сборки раз\nв 2 месяца"     as e_biwk   <<business-event>>
+  archimate #Business "Запрос комментария\nэксперта"    as e_req    <<business-event>>
+  archimate #Business "Вт, Пт старт\nоценки материалов" as e_eval   <<business-event>>
+  archimate #Business "Время синтеза\nматериалов"       as e_synth  <<business-event>>
+
+  ' --- Objects ---
+  archimate #Business "Дайджест"                   as bo_digest   <<business-object>>
+  archimate #Business "Выпуск дайджеста"           as bo_issue    <<business-object>>
+  archimate #Business "Элемент дайджеста"          as bo_item     <<business-object>>
+  archimate #Business "Оцененный материал/новость" as bo_rated    <<business-object>>
+  archimate #Business "Комментарий эксперта"       as bo_comment  <<business-object>>
+  archimate #Business "Материал/новость"           as bo_material <<business-object>>
+  archimate #Business "Источник"                   as bo_source   <<business-object>>
 }
 
 ' ==== APPLICATION LAYER ====
@@ -24,58 +69,122 @@ package "Application Layer" <<Rectangle>> {
   archimate #Application "s3p-database\n(SQL + DB functions)"     as db_app      <<application-component>>
   archimate #Application "cloud-core\n(Helm + ArgoCD)"            as cloud       <<application-component>>
   archimate #Application "plugin-template\n(GitHub scaffold)"     as plugin_tpl  <<application-component>>
+  archimate #Application "plugin-package\n(cookiecutter)"         as plugin_pkg  <<application-component>>
   archimate #Application "GitHub Actions\n(CI)"                   as gha         <<application-component>>
 
   archimate #Application "S3PTask"                                as do_task     <<application-data-object>>
   archimate #Application "S3PDocument"                            as do_doc      <<application-data-object>>
   archimate #Application "S3PScore"                               as do_score    <<application-data-object>>
+  archimate #Application "S3PDigest"                              as do_digest   <<application-data-object>>
   archimate #Application "Plugin artifact\n(plugin.xml + src/*)"  as do_plugin   <<application-data-object>>
 }
 
 ' ==== TECHNOLOGY LAYER ====
 package "Technology Layer" <<Rectangle>> {
-  archimate #Technology "Kubernetes\ndemo-s3p-dev"         as k8s       <<technology-node>>
-  archimate #Technology "Compose host\n(n8n stack)"        as host_n8n  <<technology-node>>
-  archimate #Technology "VM\n(tape-service)"               as host_tape <<technology-node>>
+  archimate #Technology "Kubernetes\ndemo-s3p-dev"          as k8s       <<technology-node>>
+  archimate #Technology "Compose host\n(n8n stack)"         as host_n8n  <<technology-node>>
+  archimate #Technology "VM\n(tape-service)"                as host_tape <<technology-node>>
   archimate #Technology "Static hosting\n(Timeweb / nginx)" as static    <<technology-node>>
-  archimate #Technology "Postgres host"                    as host_db   <<technology-node>>
+  archimate #Technology "Postgres host"                     as host_db   <<technology-node>>
 
-  archimate #Technology "PostgreSQL 16"                    as pg        <<technology-system-software>>
-  archimate #Technology "Redis"                            as redis     <<technology-system-software>>
-  archimate #Technology "S3 bucket\n(plugin artifacts)"    as s3        <<technology-artifact>>
-  archimate #Technology "GHCR\n(container registry)"       as ghcr      <<technology-artifact>>
-  archimate #Technology "GitHub\n(SCM + Actions)"          as gh        <<technology-service>>
+  archimate #Technology "PostgreSQL"                        as pg        <<technology-system-software>>
+  archimate #Technology "Redis"                             as redis     <<technology-system-software>>
+  archimate #Technology "S3 bucket\n(plugin artifacts)"     as s3        <<technology-artifact>>
+  archimate #Technology "GHCR\n(container registry)"        as ghcr      <<technology-artifact>>
+  archimate #Technology "GitHub\n(SCM + Actions)"           as gh        <<technology-service>>
 }
 
-' ==== BUSINESS: actors -> services ====
-author    --> svc_plugin
-expert    --> svc_annot
-operator  --> svc_ingest
+' ==== BUSINESS: actors → roles / functions / processes ====
+curator       --> fn_issue          : выполняет
+expert        --> role_expert       : играет
+reader        --> role_consumer     : играет
+admin         --> p_sources         : управляет
+role_consumer --> svc_delivery      : потребляет
+role_expert   --> p_collect_scores  : участвует
+role_expert   --> p_expert_req      : отвечает
+author        --> plugin_tpl        : scaffolds from
+author        --> plugin_pkg        : packages with
+
+' ==== BUSINESS: function aggregates process ====
+fn_issue      o-- p_select
+fn_issue      o-- p_comments
+fn_issue      o-- p_form
+fn_issue      o-- p_approve
+fn_issue      o-- p_publish
+
+fn_analytics  o-- p_score
+fn_analytics  o-- p_expert_req
+fn_analytics  o-- p_collect_scores
+fn_analytics  o-- p_feed
+
+fn_collection o-- p_synth
+fn_collection o-- p_sources
+
+' ==== BUSINESS: process flow (Создание выпуска) ====
+p_select   --> p_comments
+p_comments --> p_form
+p_form     --> p_approve
+p_approve  --> p_publish
+p_publish  --> svc_delivery
+
+' ==== BUSINESS: events trigger processes ====
+e_weekly --> p_select
+e_biwk   --> p_form
+e_req    --> p_expert_req
+e_eval   --> p_score
+e_synth  --> p_synth
+p_comments --> e_req : raises
+
+' ==== BUSINESS: object composition (Дайджест → … → Материал/новость) ====
+bo_digest *-- bo_issue
+bo_issue  *-- bo_item
+bo_item   *-- bo_rated
+bo_rated  *-- bo_comment
+bo_rated  *-- bo_material
+
+' ==== BUSINESS: process ↔ object access ====
+p_sources        --> bo_source
+p_synth          --> bo_material
+p_score          --> bo_rated
+p_collect_scores --> bo_comment
+p_feed           --> bo_rated
+p_form           --> bo_issue
+p_publish        --> bo_issue
+svc_delivery     --> bo_issue
 
 ' ==== APPLICATION REALIZES BUSINESS ====
-n8n         ..|> svc_ingest
-node        ..|> svc_ingest
-simple_api  ..|> svc_ingest
-web         ..|> svc_annot
-tape        ..|> svc_annot
-plugin_tpl  ..|> svc_plugin
-gha         ..|> svc_plugin
+n8n         ..|> fn_collection
+simple_api  ..|> fn_collection
+node        ..|> fn_collection
+tape        ..|> fn_analytics
+web         ..|> fn_analytics
+web         ..|> svc_delivery
+db_app      ..|> fn_issue
+
+' ==== APP DATA OBJECT realizes BUSINESS OBJECT ====
+do_doc    ..|> bo_material
+do_score  ..|> bo_comment
+do_digest ..|> bo_digest
+do_plugin ..|> bo_source
 
 ' ==== APP <-> APP ====
-sdk         <-- node       : uses
-sdk         <-- tape       : uses
-simple_api  <-- n8n        : uses
-db_app      <-- simple_api : SQL
-db_app      <-- node       : SQL
-db_app      <-- tape       : SQL
-tape        <-- web        : REST + WS
+sdk        <-- node       : uses
+sdk        <-- tape       : uses
+simple_api <-- n8n        : uses
+db_app     <-- simple_api : SQL
+db_app     <-- node       : SQL
+db_app     <-- tape       : SQL
+tape       <-- web        : REST + WS
 
-node        --> do_task    : reads
-node        --> do_plugin  : downloads
-node        --> do_doc     : writes
-tape        --> do_score   : writes
-tape        --> do_doc     : reads
-gha         --> do_plugin  : produces
+node       --> do_task    : reads
+node       --> do_plugin  : downloads
+node       --> do_doc     : writes
+tape       --> do_score   : writes
+tape       --> do_doc     : reads
+tape       --> do_digest  : writes
+db_app     --> do_digest  : stores
+gha        --> do_plugin  : produces
+plugin_pkg --> gha        : built by
 
 ' ==== APP DEPLOYED ON TECH ====
 node       --> k8s        : assigned to
