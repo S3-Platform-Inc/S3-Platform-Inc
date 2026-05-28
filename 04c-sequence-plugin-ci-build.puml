@@ -1,0 +1,37 @@
+@startuml
+title S3-Platform — Plugin CI Build & S3 Upload (Sequence)
+
+actor       "Plugin Author"            as author
+participant "GitHub\n(plugin repo)"     as gh
+participant "GitHub Actions\nrunner"    as runner
+database    "Platform S3 bucket"        as s3
+
+author -> gh: git push tag vX.Y.Z
+gh -> runner: trigger release workflow\n(.github/workflows/release.yml)
+activate runner
+
+runner -> gh: checkout @ tag
+runner -> runner: setup-python 3.11
+runner -> runner: poetry install
+runner -> runner: pytest
+
+alt tests fail
+  runner --> gh: workflow failure
+  gh --> author: notify (email / PR check)
+else tests pass
+  runner -> runner: build artifact\n(plugin.xml + src/<name>/*.py)
+  runner -> s3: PUT plugins/<repo>/plugin.xml
+  loop for each payload file
+    runner -> s3: PUT plugins/<repo>/src/<name>/<file>
+  end
+  runner --> gh: workflow success ✓
+  note over s3
+    s3p-node will read these
+    on its next dbTask.relevant()
+    that references this plugin.
+  end note
+end
+
+deactivate runner
+
+@enduml

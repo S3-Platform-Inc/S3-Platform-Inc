@@ -1,0 +1,84 @@
+@startuml
+!pragma layout smetana
+title S3-Platform — Component Diagram
+
+skinparam componentStyle rectangle
+
+actor "Annotation\nExpert"    as expert
+actor "Plugin\nAuthor"        as author
+actor "Platform\nOperator"    as operator
+actor "n8n Scheduler"         as sched <<system>>
+
+package "Browser" {
+  [s3p-web-annotation\n(React 19 + TS + Vite)] as web
+}
+
+package "Compose host (s3p-n8n)" {
+  [n8nio/n8n:latest] as n8n
+  [s3p-simple-api] as sapi
+  database "n8n metadata\n(Postgres 12)" as n8n_pg
+  [pg_backup] as bkp
+  [autoheal] as ah
+}
+
+package "VM (s3p-tape-service)" {
+  [tape-service-api\n(FastAPI / Uvicorn)] as tape_api
+  [tape-service-worker\n(APScheduler + LISTEN)] as tape_worker
+  database "Redis" as redis
+}
+
+package "Kubernetes cluster (demo-s3p-dev)" {
+  [s3p-node\n(3 replicas, worker)] as node
+  [ArgoCD Application\n(cloud-core)] as argo
+}
+
+package "Shared library" {
+  artifact "s3p-sdk\n(Python lib, PyPI)" as sdk
+}
+
+database "s3p-database\n(Postgres 16, schemas:\nnodes, tasks, plugins, sources,\nml, documents, analytics,\ncontrol, score, users)" as db
+
+cloud "Platform S3 bucket\nplugins/<repo>/{plugin.xml, src/*}" as s3
+cloud "GitHub" as github {
+  artifact "plugin-template repo" as tpl
+  artifact "plugin source repos" as plugrepo
+  [GitHub Actions CI] as gha
+}
+cloud "GHCR\n(container registry)" as ghcr
+
+' ==== INTERFACES ====
+expert       --> web   : HTTPS
+web          --> tape_api : REST /api/* (HTTPS)
+web          <.. tape_api : WS /ws (events)
+
+tape_api     --> db    : SQL (psycopg3 pool)
+tape_api     --> redis : Redis (sessions, tape)
+tape_worker  --> db    : SQL + LISTEN/NOTIFY
+tape_worker  --> redis : Redis pub/sub
+tape_api     ..>  sdk  : imports
+tape_worker  ..>  sdk  : imports
+
+sched        --> n8n   : cron / webhook
+n8n          --> sapi  : HTTP
+n8n          --> n8n_pg : SQL (own metadata)
+sapi         --> db    : SQL
+bkp          --> n8n_pg : pg_dump (nightly)
+ah           ..> n8n   : health monitor
+
+node         --> db    : SQL\n(poll tasks, heartbeat,\nstatus_update, document add)
+node         --> s3    : S3 API\n(GET plugins/<repo>/...)
+node         ..> sdk   : imports
+
+argo         --> node  : Helm apply
+node         <.. ghcr  : OCI pull
+
+author       --> tpl   : fork / scaffold
+author       --> plugrepo : push commits / tags
+plugrepo     --> gha   : workflow trigger
+gha          --> s3    : PUT plugin artifacts
+gha          --> ghcr  : push container images
+
+operator     --> argo  : Git push to cloud-core
+operator     --> n8n   : edit workflows
+
+@enduml

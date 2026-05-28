@@ -1,0 +1,53 @@
+@startuml
+title S3-Platform — Document Annotation Scoring (Sequence)
+
+actor       "Annotation Expert"        as expert
+participant "s3p-web-annotation\n(React SPA)" as spa
+participant "tape-service API\n(FastAPI)"     as api
+participant "tape-service worker\n(APScheduler + LISTEN)" as worker
+database    "s3p-database\n(Postgres 16)"     as db
+database    "Redis"                            as redis
+
+== Page load ==
+expert -> spa: open /scoring
+spa -> api: GET /tape\n(Cookie: session)
+activate api
+api -> redis: GET tape:<user>
+redis --> api: candidate doc IDs
+api -> db: SELECT documents WHERE id IN (...)
+db --> api: documents rows
+api --> spa: 200 (page of S3PDocument)
+deactivate api
+
+== Score submission ==
+expert -> spa: select verdict + role + (comment)
+spa -> api: POST /score\n{doc_id, role, verdict, comment}
+activate api
+api -> db: INSERT INTO score.score(...)
+note right of db
+  Trigger fires
+  NOTIFY score_added
+  (per docs/sql/03-score-notify.sql)
+end note
+api -> redis: DEL tape:<user>:<doc_id>
+api --> spa: 204 No Content
+deactivate api
+
+== Async tape regeneration ==
+db -->> worker: pg_notify('score_added', payload)
+activate worker
+worker -> db: SELECT next candidates\nfor <user>
+db --> worker: candidate rows
+worker -> redis: SET tape:<user> (new entries)
+worker -> redis: PUBLISH ws:<user> tape.regenerated
+deactivate worker
+
+redis -->> api: ws:<user> tape.regenerated
+api -->> spa: WS /ws -> {type:'tape.regenerated'}
+spa -> spa: update notification banner
+
+expert -> spa: advance to next doc
+spa -> api: GET /tape?page=...
+api --> spa: next page of documents
+
+@enduml

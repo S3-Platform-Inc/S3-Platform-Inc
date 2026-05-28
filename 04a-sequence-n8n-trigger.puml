@@ -1,0 +1,63 @@
+@startuml
+title S3-Platform — n8n Triggers Plugin Run on s3p-node (Sequence)
+
+actor       "n8n Scheduler"      as sched
+participant "n8n\n(workflow)"     as n8n
+participant "s3p-simple-api"      as api
+database    "s3p-database\n(Postgres 16)" as db
+participant "s3p-node\nPushTrigger" as trig
+participant "s3p-node\nApp / S3Plugin" as node
+database    "Platform S3 bucket" as s3
+participant "Plugin process\n(multiprocessing)" as plug
+
+sched -> n8n: cron / webhook trigger
+activate n8n
+n8n -> api: HTTP POST /tasks\n(source_id, plugin_id)
+activate api
+api -> db: INSERT tasks(status='scheduled')
+api --> n8n: 200 OK (task_id)
+deactivate api
+
+loop every 5s
+  trig -> db: SELECT dbTask.relevant(node)
+end
+db --> trig: S3PTask row
+
+activate trig
+trig -> node: yield S3PTask
+deactivate trig
+
+activate node
+node -> db: UPDATE tasks SET status='PREPARING'
+node -> s3: GET plugins/<repo>/plugin.xml
+s3 --> node: manifest (name, version, filenames)
+loop for each file
+  node -> s3: GET plugins/<repo>/src/<name>/<file>
+  s3 --> node: payload file
+end
+node -> node: importlib.util.spec_from_file_location
+node -> db: UPDATE tasks SET status='WORKING'
+
+create plug
+node -> plug: Process(target=payload.run).start()
+activate plug
+plug -> plug: S3PParserBase.content()
+loop for each parsed document
+  plug -> db: SELECT documents.add_document(...)\n(DB function)
+end
+plug --> node: exit code 0
+destroy plug
+
+node -> db: UPDATE tasks SET status='FINISHED'
+node -> db: Node.alive()  (heartbeat)
+deactivate node
+
+n8n -> api: HTTP GET /tasks/{task_id}
+activate api
+api -> db: SELECT * FROM tasks WHERE id=...
+db --> api: row status='FINISHED'
+api --> n8n: status='FINISHED'
+deactivate api
+deactivate n8n
+
+@enduml

@@ -1,0 +1,51 @@
+@startuml
+title S3-Platform — Plugin Lifecycle (Activity)
+
+start
+:Author scaffolds new plugin
+from s3-platform-plugin-template (GitHub);
+:Author implements payload
+(subclass s3p_sdk.plugin.payloads.S3PParserBase);
+:Author commits & pushes to GitHub;
+:Author creates release tag (vX.Y.Z);
+:GitHub Actions runs release workflow;
+:Run pytest;
+if (tests pass?) then (yes)
+  :Build artifact
+  (plugin.xml + src/<name>/*.py);
+  :Upload to platform S3 bucket
+  plugins/<repo>/plugin.xml
+  plugins/<repo>/src/<name>/<file>;
+else (no)
+  :Notify author of failure;
+  stop
+endif
+
+:Operator/n8n workflow creates task
+in s3p-database (tasks/control schema)
+referencing the plugin;
+
+partition s3p-node {
+  :PushTrigger polls every 5s
+  dbTask.relevant(node);
+  :Pick up S3PTask;
+  :status_update -> PREPARING;
+  :S3Plugin.download()
+  GET plugins/<repo>/plugin.xml + payload files
+  from platform S3 bucket;
+  :importlib.util.spec_from_file_location
+  load payload class;
+  :status_update -> WORKING;
+  :Run payload in multiprocessing.Process;
+  :Parser emits documents
+  via s3p-database DB function;
+  if (process exit 0?) then (yes)
+    :status_update -> FINISHED;
+  else (no)
+    :status_update -> BROKEN;
+  endif
+}
+
+stop
+
+@enduml

@@ -1,0 +1,45 @@
+@startuml
+!pragma layout smetana
+title S3-Platform — Use-Case Diagram
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Plugin Author"        as author
+actor "Annotation Expert"    as expert
+actor "Platform Operator"    as operator
+actor "GitHub Actions CI"    as ci      <<system>>
+actor "n8n Scheduler"        as sched   <<system>>
+
+rectangle "S3-Platform" {
+  usecase "Create plugin from template"          as UC1
+  usecase "Implement & test plugin locally"      as UC2
+  usecase "Release plugin version (tag)"         as UC3
+  usecase "Build & publish plugin artifact\nto S3 bucket" as UC4
+  usecase "Configure n8n workflow\n(source + launch rules)" as UC5
+  usecase "Trigger plugin run\non source"        as UC6
+  usecase "Ingest documents\ninto s3p-database"  as UC7
+  usecase "Configure tape\n(sources, filters)"   as UC8
+  usecase "Score document"                       as UC9
+  usecase "Receive live tape updates"            as UC10
+  usecase "Deploy platform\n(Helm + ArgoCD)"     as UC11
+}
+
+author --> UC1
+author --> UC2
+author --> UC3
+
+UC3 .> UC4 : <<include>>
+ci --> UC4
+
+operator --> UC5
+sched --> UC6
+UC6 .> UC7 : <<include>>
+
+expert --> UC8
+expert --> UC9
+UC9 .> UC10 : <<extend>>
+
+operator --> UC11
+
+@enduml

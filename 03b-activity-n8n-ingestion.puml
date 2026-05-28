@@ -1,0 +1,48 @@
+@startuml
+title S3-Platform — n8n Source Ingestion (Activity)
+
+|n8n workflow|
+start
+:Trigger fires (per-source schedule);
+:Workflow reads source + launch rules
+from n8n nodes / s3p-database;
+:HTTP POST -> s3p-simple-api;
+
+|s3p-simple-api|
+:Validate request;
+:INSERT into s3p-database
+tasks (source_id, plugin_id, status=scheduled);
+:Return 200 OK (task_id);
+
+|n8n workflow|
+:Poll task status
+via s3p-simple-api;
+
+|s3p-node|
+:PushTrigger polls every 5s
+dbTask.relevant(node);
+:Pick up S3PTask;
+:status_update -> PREPARING;
+:Download plugin artifact
+from platform S3 bucket;
+:Load payload class
+(importlib + spec_from_file_location);
+:status_update -> WORKING;
+fork
+  :Parser runs in
+  multiprocessing.Process;
+  :S3PParserBase.content();
+  while (more documents?) is (yes)
+    :Insert document via
+    s3p-database DB function;
+  endwhile (no)
+end fork
+:status_update -> FINISHED;
+:Node.alive() heartbeat;
+
+|n8n workflow|
+:Receive FINISHED status;
+:Workflow run complete;
+stop
+
+@enduml

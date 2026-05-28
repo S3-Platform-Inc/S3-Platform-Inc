@@ -1,0 +1,106 @@
+@startuml
+!pragma layout smetana
+title S3-Platform — Deployment Diagram (As-Is)
+
+skinparam linetype ortho
+
+' ==== EXTERNAL ====
+cloud "GitHub (SaaS)" as github {
+  artifact "7 platform repos" as repos
+  artifact "s3-platform-plugin-template" as tpl
+  artifact "plugin-* repos\n(per plugin author)" as prepos
+  node "GitHub Actions runner" as gha
+  artifact "GHCR\nghcr.io/s3-platform-inc/*" as ghcr
+}
+
+cloud "Object storage" as objsto {
+  database "Platform S3 bucket\nplugins/<repo>/\n  plugin.xml\n  src/<name>/*" as s3
+}
+
+' ==== K8s ====
+node "Kubernetes cluster (demo-s3p-dev)" as k8s {
+  component "ArgoCD\n(deployed via cloud-core)" as argo
+
+  node "s3p-node Deployment\n(replicas: 3)" as node_dep {
+    artifact "Pod\nimage: ghcr.io/s3-platform-inc/\ns3p-node:3.0.3-beta\nenv: SPP_TYPE_NODE=worker" as node_pod
+    artifact "ConfigMap\nnode.yaml" as node_cm
+    artifact "PVC\nplugin / local storage" as node_pvc
+  }
+  artifact "Secret\ns3-platform-credentials-database" as sec_db
+  artifact "Secret\ns3-platform-credentials-s3"       as sec_s3
+  artifact "Secret\ns3-platform-credentials-github"   as sec_gh
+  artifact "imagePullSecret\nghcr-secret"             as ghcr_pull
+}
+
+' ==== n8n host ====
+node "Compose host (s3p-n8n)" as n8n_host {
+  artifact "compose.yaml" as compose
+  component "n8nio/n8n:latest\nport 5678" as n8n_c
+  component "ghcr.io/s3-platform-inc/\ns3p-simple-api:dev" as sapi_c
+  database  "postgres:12\n(n8n metadata)\nvolume: db_data" as n8n_pg
+  component "prodrigestivill/\npostgres-backup-local:16\nvolume: pg_backups" as bkp_c
+  component "willfarrell/autoheal" as ah_c
+  note bottom of n8n_host
+    bridge network: n8n-network
+  end note
+}
+
+' ==== tape-service host ====
+node "VM (s3p-tape-service)" as tape_host {
+  component "tape-service-api\n(Uvicorn :8000)" as tape_api_d
+  component "tape-service-worker\n(APScheduler)\nWORKER_INTERVAL_SECONDS=60" as tape_worker_d
+  database  "Redis" as redis_d
+  note bottom of tape_host
+    Deployed via semantic-release ->
+    GHCR multi-arch -> SSH deploy.
+  end note
+}
+
+' ==== SPA hosting ====
+node "Static hosting\n(Timeweb App Platform / nginx)" as static_host {
+  artifact "s3p-web-annotation dist/\nVITE_API_BASE\nVITE_WS_URL" as web_static
+  note bottom of static_host
+    Alt path: Docker image
+    ghcr.io/s3-platform-inc/
+    s3p-web-annotation:<tag>
+    nginx proxies /api/* -> API_UPSTREAM
+  end note
+}
+
+' ==== Database host ====
+node "Postgres host" as db_host {
+  database "s3p-database\nPostgres 16, port 10901\nDB: sppIntegrateDB\nschemas: nodes/tasks/plugins/\nsources/ml/documents/\nanalytics/control/score/users" as db_d
+}
+
+' ==== Cluster host (5236469-twmanvds4.twc1.net) is the K8s cluster above ====
+
+' ==== EDGES ====
+argo         --> node_dep : Helm apply
+node_pod     <.. ghcr     : OCI pull (ghcr-secret)
+node_pod     ..> sec_db
+node_pod     ..> sec_s3
+node_pod     ..> sec_gh
+node_pod     ..> node_cm
+
+node_pod     --> db_d : SQL\npoll dbTask.relevant\nstatus_update, heartbeat
+node_pod     --> s3   : S3 API\nGET plugin.xml + src/*
+
+n8n_c        --> sapi_c : HTTP
+n8n_c        --> n8n_pg : SQL (metadata)
+sapi_c       --> db_d   : SQL (sources, tasks)
+bkp_c        --> n8n_pg : pg_dump (nightly)
+
+tape_api_d     --> db_d   : SQL
+tape_api_d     --> redis_d
+tape_worker_d  --> db_d   : LISTEN/NOTIFY
+tape_worker_d  --> redis_d : pub/sub
+
+web_static   --> tape_api_d : HTTPS /api/* + WSS /ws
+
+gha          --> s3    : PUT artifacts
+gha          --> ghcr  : push images
+prepos       -.-> gha  : tag triggers workflow
+tpl          -.-> prepos : forked from
+repos        -.-> ghcr : build & push platform images
+
+@enduml
